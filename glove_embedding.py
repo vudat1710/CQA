@@ -17,6 +17,11 @@ class Glove:
                 word = temp[0]
                 self.g[word] = np.array(temp[1:]).astype(float)
     
+    def main(self):
+        print(self.g["the"])
+if __name__=="__main__":
+    a = Glove()
+    a.main()
 
     # give a list of tokens, return a list of glove embeddings or a single BOW average if ndims == 1
     # very rare words are map to 0-vectors 

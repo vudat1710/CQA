@@ -1,6 +1,6 @@
 from keras import backend as K
 from keras.layers import Embedding
-from keras.layers import LSTM, Input, dot, Lambda, GlobalMaxPool1D, Dense, Dropout
+from keras.layers import LSTM, Input, dot, Lambda, GlobalMaxPool1D, Dense, Dropout, concatenate
 from keras.layers.wrappers import Bidirectional
 from keras.models import Model
 import numpy as np
@@ -8,6 +8,7 @@ import embedding
 import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 from create_modelembedding import EmbeddingMatrix
+from keras.callbacks import EarlyStopping
 
 
 class ModelTraining:
@@ -57,7 +58,7 @@ class ModelTraining:
         MRR /= num_q
         return MAP, MRR
 
-    def get_bilstm_model(self, embedding_file, vocab_size, vocab):
+    def get_bilstm_model(self, vocab_size, vocab):
         margin = 0.05
         enc_timesteps = 150
         dec_timesteps = 150
@@ -70,7 +71,8 @@ class ModelTraining:
 
         embed = EmbeddingMatrix()
         g = embed.get_glove_vectors()
-        weights = embed.embmatrix(vocab)
+        weights = embed.embmatrix(g, vocab)
+        # weights = embedding_file
         qa_embedding = Embedding(
             input_dim=vocab_size, input_length=150, output_dim=weights.shape[1], mask_zero=True, weights=[weights])
         bi_lstm = Bidirectional(
@@ -80,66 +82,65 @@ class ModelTraining:
         # embed the question and pass it through bilstm
         question_embedding = qa_embedding(question)
         question_enc_1 = bi_lstm(question_embedding)
-        question_enc_1 = Dropout(0.2)(question_enc_1)
-        # question_enc_1 = maxpool(question_enc_1)
-        # question_enc_1 = GlobalMaxPool1D()(question_enc_1)
-        # question_enc_1 = Dense(hidden_dim, activation='relu')
-        # question_enc_1 = Dense(100, activation='softmax')
+        # question_enc_1 = Dropout(0.2)(question_enc_1)
 
         # embed the answer and pass it through bilstm
         answer_embedding = qa_embedding(answer)
         answer_enc_1 = bi_lstm(answer_embedding)
-        answer_enc_1 = Dropout(0.2)(answer_enc_1)
+        # answer_enc_1 = Dropout(0.2)(answer_enc_1)
 
-        qa_merged = dot([question_enc_1, answer_enc_1], axes=1, normalize=True)
-        # full_connect = Dense(64, activation='relu')(qa_merged)
-        # main_loss = Dense(1, activation='sigmoid', name='main_output')(full_connect)
+        # qa_merged = dot([question_enc_1, answer_enc_1], axes=1, normalize=True)
+        qa_merged = concatenate([question_enc_1, answer_enc_1], axis=1)
+        qa_merged = Dense(1, activation='softmax')(qa_merged)
         lstm_model = Model(name="bi_lstm", inputs=[
                            question, answer], outputs=qa_merged)
-        similarity = lstm_model([question, answer])
+        output = lstm_model([question, answer])
         # lam = Lambda(lambda x: x)
         # loss = lam(similarity)
         training_model = Model(
-            inputs=[question, answer], outputs=similarity, name='training_model')
-        # training_model.compile(loss=lambda y_true, y_pred: self.ranknet(y_true, y_pred), optimizer='adadelta')
-        training_model.compile(loss='binary_crossentropy', optimizer='adam')
+            inputs=[question, answer], outputs=output, name='training_model')
+        training_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         return training_model
 
     def main(self):
         eb = embedding.Embedding_Data()
         embed = EmbeddingMatrix()
-        embedding_file = 'word_100_dim.embedding'
+        # embedding_file = 'word_100_dim.embedding'
         vocab = embed.create_vocab_dict()
         vocab_len = len(vocab)
-        training_model = self.get_bilstm_model(embedding_file, vocab_len, vocab)
-        epoch = 3
+        training_model = self.get_bilstm_model(vocab_len, vocab)
+        epoch = 10
+        es = EarlyStopping(monitor='val_loss', verbose=1, patience=2)
         for i in range(epoch):
             print("Training epoch: ", i)
-            FILE_PATH = 'trainfile.txt'
+            FILE_PATH = 'train.txt'
             questions, answers, labels = eb.build_corpus(FILE_PATH)
             # print (np.shape(questions))
             # print (np.shape(answers))
-            model = pickle.load(open('skipgram_model.pkl', 'rb'))
-            questions = eb.turn_to_vector(questions, model)
-            answers = eb.turn_to_vector(answers, model)
-            Y = np.zeros(np.shape(labels))
-            # Y =np.array(labels)
+            # model = pickle.load(open('skipgram_model.pkl', 'rb'))
+            questions = eb.turn_to_vector(questions, vocab)
+            answers = eb.turn_to_vector(answers, vocab)
+            # Y = np.zeros(np.shape(labels))
+            Y = np.array(labels)
+            # Y = Y.reshape(1, -1)
+            # print(questions[1])
             training_model.fit(
                 [questions, answers],
                 Y,
                 epochs=1,
                 batch_size=64,
                 validation_split=0.1,
-                verbose=1
+                verbose=1,
+                callbacks=[es]
             )
             training_model.save_weights(
                 'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
 
-        training_model.load_weights('train_weights_epoch_3.h5')
-        questions, answers, labels = eb.build_corpus('test_file.txt')
-        model = pickle.load(open('skipgram_model.pkl', 'rb'))
-        questions = eb.turn_to_vector(questions, model)
-        answers = eb.turn_to_vector(answers, model)
+        training_model.load_weights('train_weights_epoch_10.h5')
+        questions, answers, labels = eb.build_corpus('test.txt')
+        # model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        questions = eb.turn_to_vector(questions, vocab)
+        answers = eb.turn_to_vector(answers, vocab)
         sims = training_model.predict([questions, answers])
         # c = 0
         # for i in range(len(sims)):
@@ -159,11 +160,6 @@ class ModelTraining:
                 f.write('\n')
             # print('\n')
         f.close()
-        # print (questions[0])
-        # print(answers[1])
-        # print (len(questions))
-        # print (len(answers))
-
 
 if __name__ == "__main__":
     a = ModelTraining()

@@ -7,6 +7,7 @@ import random
 
 
 class EmbeddingMatrix:
+    global g
     def create_model(self, FILE_PATH):
         prep = preprocess.PreprocessData()
         data_processed = prep.get_modified_data(FILE_PATH)
@@ -40,28 +41,28 @@ class EmbeddingMatrix:
         f.close()
         return vocab
 
-    def get_glove_vectors(self, N=300, file_path='vectors.txt'):
-        self.N = N
-        self.g = dict()
-        self.path_to_file = file_path
+    def get_glove_vectors(self):
+        N = 300
+        g = dict()
+        file_path='vectors.txt'
 
         with open(file_path, 'r') as f:
             for line in f.readlines():
                 temp = line.split()
                 word = temp[0]
-                self.g[word] = np.array(temp[1:]).astype(float)
-        return self.g
+                g[word] = np.array(temp[1:]).astype(float)
+        return g
 
-    def embmatrix(self, vocab):
+    def embmatrix(self, g, vocab):
         embedding_weights = np.zeros((len(vocab), 300), dtype=float)
         for word, index in vocab.items():
             try:
-                embedding_weights[index, :] = self.g[word]
+                embedding_weights[index, :] = g[word]
             except KeyError:
                 if index == 0:
                     embedding_weights[index, :] = np.zeros(300)
                 else:
-                    embedding_weights[random.randint(0,44604), :] = np.random.uniform(-0.25, 0.25, 300)
+                    embedding_weights[random.randint(0,44603), :] = np.random.uniform(-0.25, 0.25, 300)
         return embedding_weights
 
     def main(self):

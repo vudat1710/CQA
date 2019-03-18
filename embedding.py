@@ -26,27 +26,27 @@ class Embedding_Data:
         return (questions, answers, labels)
     
     def pad(self, data, length):
-        return pad_sequences(data, maxlen=length, padding='post', truncating='post', value=0)
+        return pad_sequences(data, maxlen=length, padding='post', truncating='post')
     
-    def sentence_to_vec(self, sentence, model):
-        temp_list = sentence.split(' ')
-        result = np.zeros([len(temp_list),], dtype=int)
-        for i in range(len(temp_list)):
-            if temp_list[i] in model.wv.vocab:
-                result[i] = self.get_index(temp_list[i], model)
+    def sentence_to_vec(self, sentence, vocab):
+        splited_sentence = sentence.split(' ')
+        result = np.zeros([len(splited_sentence),], dtype=int)
+        for i in range(len(splited_sentence)):
+            if splited_sentence[i] in vocab:
+                result[i] = self.get_index(splited_sentence[i], vocab)
             else:
                 result[i] = random.randint(0, 44604)
         return result
 
-    def turn_to_vector(self, list_to_transform, model):
+    def turn_to_vector(self, list_to_transform, vocab):
         # vocab_size = 44604
         pad = 150
-        encoded_list = [self.sentence_to_vec(str(d), model) for d in list_to_transform]
+        encoded_list = [self.sentence_to_vec(str(d), vocab) for d in list_to_transform]
         padded_list = self.pad(encoded_list, pad)
         return padded_list
         
-    def get_index(self, word, model):
-        return model.wv.vocab[word].index
+    def get_index(self, word, vocab):
+        return vocab[word]
 
     def main(self):
         FILE_PATH = '/home/vudat1710/Downloads/NLP/CQA/dev.txt'
