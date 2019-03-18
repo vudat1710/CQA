@@ -90,7 +90,7 @@ class ModelTraining:
         # answer_enc_1 = Dropout(0.2)(answer_enc_1)
 
         # qa_merged = dot([question_enc_1, answer_enc_1], axes=1, normalize=True)
-        qa_merged = concatenate([question_enc_1, answer_enc_1], axis=1)
+        qa_merged = concatenate([question_enc_1, answer_enc_1])
         qa_merged = Dense(1, activation='softmax')(qa_merged)
         lstm_model = Model(name="bi_lstm", inputs=[
                            question, answer], outputs=qa_merged)
@@ -99,7 +99,7 @@ class ModelTraining:
         # loss = lam(similarity)
         training_model = Model(
             inputs=[question, answer], outputs=output, name='training_model')
-        training_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        training_model.compile(loss='binary_crossentropy', optimizer='rmsprop')
         return training_model
 
     def main(self):
@@ -109,11 +109,11 @@ class ModelTraining:
         vocab = embed.create_vocab_dict()
         vocab_len = len(vocab)
         training_model = self.get_bilstm_model(vocab_len, vocab)
-        epoch = 10
+        epoch = 5
         es = EarlyStopping(monitor='val_loss', verbose=1, patience=2)
         for i in range(epoch):
             print("Training epoch: ", i)
-            FILE_PATH = 'train.txt'
+            FILE_PATH = 'trainfile.txt'
             questions, answers, labels = eb.build_corpus(FILE_PATH)
             # print (np.shape(questions))
             # print (np.shape(answers))
@@ -136,8 +136,8 @@ class ModelTraining:
             training_model.save_weights(
                 'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
 
-        training_model.load_weights('train_weights_epoch_10.h5')
-        questions, answers, labels = eb.build_corpus('test.txt')
+        training_model.load_weights('train_weights_epoch_5.h5')
+        questions, answers, labels = eb.build_corpus('test_file.txt')
         # model = pickle.load(open('skipgram_model.pkl', 'rb'))
         questions = eb.turn_to_vector(questions, vocab)
         answers = eb.turn_to_vector(answers, vocab)
