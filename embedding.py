@@ -4,11 +4,7 @@ import pickle
 import preprocess
 import numpy as np 
 from keras.preprocessing.sequence import pad_sequences
-from sklearn.feature_extraction.text import TfidfVectorizer
-from keras.layers import Dense, Flatten
-from keras.models import Sequential
 from keras.layers.embeddings import Embedding
-from keras.preprocessing.text import one_hot
 from tensorflow.contrib import learn
 import random
 
