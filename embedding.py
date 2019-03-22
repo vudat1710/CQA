@@ -31,7 +31,7 @@ class Embedding_Data:
             if splited_sentence[i] in vocab:
                 result[i] = self.get_index(splited_sentence[i], vocab)
             else:
-                result[i] = random.randint(0, 44604)
+                result[i] = random.randint(0, 44603)
         return result
 
     def turn_to_vector(self, list_to_transform, vocab):

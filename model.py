@@ -8,7 +8,7 @@ import embedding
 import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 from create_modelembedding import EmbeddingMatrix
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 
 class ModelTraining:
@@ -59,7 +59,6 @@ class ModelTraining:
         return MAP, MRR
 
     def get_bilstm_model(self, vocab_size, vocab):
-        margin = 0.05
         enc_timesteps = 150
         dec_timesteps = 150
         hidden_dim = 128
@@ -74,7 +73,7 @@ class ModelTraining:
         weights = embed.embmatrix(g, vocab)
         # weights = embedding_file
         qa_embedding = Embedding(
-            input_dim=vocab_size, input_length=150, output_dim=weights.shape[1], mask_zero=False, weights=[weights])
+            input_dim=vocab_size + 1, input_length=150, output_dim=weights.shape[1], mask_zero=False, weights=[weights])
         bi_lstm = Bidirectional(
             LSTM(activation='tanh', dropout=0.2, units=hidden_dim, return_sequences=False))
         # maxpool = Lambda(lambda x: K.max(x, axis=1, keepdims=False), output_shape=lambda x: (x[0], x[2]))
@@ -99,7 +98,7 @@ class ModelTraining:
         # # loss = lam(similarity)
         training_model = Model(
             inputs=[question, answer], outputs=output, name='training_model')
-        training_model.compile(loss='binary_crossentropy', optimizer='rmsprop')
+        training_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
         # lstm_model.compile(loss='binary_crossentropy', optimizer='adam')
         return training_model
 
@@ -111,32 +110,26 @@ class ModelTraining:
         vocab_len = len(vocab)
         training_model = self.get_bilstm_model(vocab_len, vocab)
         epoch = 1
-        es = EarlyStopping(monitor='val_loss', verbose=1, patience=2)
-        for i in range(epoch):
-            print("Training epoch: ", i)
-            FILE_PATH = 'train.txt'
-            questions, answers, labels = eb.build_corpus(FILE_PATH)
-            # print (np.shape(questions))
-            # print (np.shape(answers))
-            # model = pickle.load(open('skipgram_model.pkl', 'rb'))
-            questions = eb.turn_to_vector(questions, vocab)
-            answers = eb.turn_to_vector(answers, vocab)
-            # Y = np.zeros(np.shape(labels))
-            Y = np.array(labels)
-            # Y = Y.reshape(1, -1)
-            # print(questions[1])
-            # print(answers[1])
-            training_model.fit(
-                [questions, answers],
-                Y,
-                epochs=100,
-                batch_size=64,
-                validation_split=0.1,
-                verbose=1,
-                callbacks=[es]
-            )
-            training_model.save_weights(
-                'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
+        es = EarlyStopping(monitor='val_acc', verbose=1, patience=2)
+        checkpoint = ModelCheckpoint('model_improvement-{epoch:02d}-{val_acc:.2f}.h5', monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+        FILE_PATH = 'train.txt'
+        questions, answers, labels = eb.build_corpus(FILE_PATH)
+        # model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        questions = eb.turn_to_vector(questions, vocab)
+        answers = eb.turn_to_vector(answers, vocab)
+        # Y = np.zeros(np.shape(labels))
+        Y = np.array(labels)
+        training_model.fit(
+            [questions, answers],
+            Y,
+            epochs=100,
+            batch_size=64,
+            validation_split=0.1,
+            verbose=1,
+            callbacks=[es, checkpoint]
+        )
+        training_model.save_weights(
+            'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
         training_model.summary()
 
         training_model.load_weights('train_weights_epoch_1.h5')
@@ -146,7 +139,10 @@ class ModelTraining:
         answers = eb.turn_to_vector(answers, vocab)
         # print(questions[1])
         # print(answers[1])
+        Y = np.array(labels)
         sims = training_model.predict([questions, answers])
+        res = training_model.evaluate([questions, answers], Y, verbose=1)
+        print (res)
         # # # c = 0
         # # for i in range(len(sims)):
         # #     if (sims[i] > 0):

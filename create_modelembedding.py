@@ -27,7 +27,7 @@ class EmbeddingMatrix:
         with open('vocab_all.txt', 'w') as f:
             vocab = model.wv.vocab
             for key, _ in vocab.items():
-                index = vocab[key].index + 1
+                index = vocab[key].index
                 f.write(str(index) + '\t' + key)
                 f.write('\n')
         f.close()
@@ -37,7 +37,7 @@ class EmbeddingMatrix:
         with open('vocab_all.txt', 'r') as f:
             for line in f.readlines():
                 temp = line.split('\t')
-                vocab[temp[1]] = temp[0]
+                vocab[temp[1].strip()] = temp[0].strip()
         f.close()
         return vocab
 
@@ -54,30 +54,23 @@ class EmbeddingMatrix:
         return g
 
     def embmatrix(self, g, vocab):
-        embedding_weights = np.zeros((len(vocab), 300), dtype=float)
-        for word, index in vocab.items():
-            try:
-                embedding_weights[index, :] = g[word]
-            except KeyError:
-                if index == 0:
-                    embedding_weights[index, :] = np.zeros(300)
-                else:
-                    embedding_weights[random.randint(0,44603), :] = np.random.uniform(-0.25, 0.25, 300)
+        embedding_weights = np.zeros((len(vocab)+1, 300), dtype=float)
+        for word in vocab.keys():
+            if word in g:
+                embedding_weights[int(vocab[word]), :] = np.array(g[word])
+            else:
+                embedding_weights[int(vocab[word]), :] = np.random.uniform(-0.25, 0.25, 300)
         return embedding_weights
 
     def main(self):
-        FILE_PATH = '/home/vudat1710/Downloads/NLP/CQA/train.txt'
-        # self.create_model(FILE_PATH)
-        # prep = preprocess.PreprocessData()
-        # data_processed = prep.get_modified_data(FILE_PATH)
-        # print (data_processed)
-        loaded_model = pickle.load(
-            open('/home/vudat1710/Downloads/NLP/CQA/skipgram_model.pkl', 'rb'))
-        vocab = loaded_model.wv.vocab
-        vector_to_dump = [loaded_model[key] for key, _ in vocab.items()]
-        with open('word_100_dim.embedding', 'wb') as f:
-            np.save(f, vector_to_dump)
-        f.close()
+        g = self.get_glove_vectors()
+        model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        vocab = self.create_vocab_dict()
+        print (len(vocab))
+        weights = self.embmatrix(g, vocab)
+        # print (weights)
+        # print (vocab['i'])
+        
 
         # print (loaded_model["work"])
         # print(type(vocab))
