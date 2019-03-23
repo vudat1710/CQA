@@ -132,17 +132,17 @@ class ModelTraining:
             'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
         training_model.summary()
 
-        training_model.load_weights('train_weights_epoch_1.h5')
-        questions, answers, labels = eb.build_corpus('test.txt')
-        # model = pickle.load(open('skipgram_model.pkl', 'rb'))
-        questions = eb.turn_to_vector(questions, vocab)
-        answers = eb.turn_to_vector(answers, vocab)
-        # print(questions[1])
-        # print(answers[1])
-        Y = np.array(labels)
-        sims = training_model.predict([questions, answers])
-        res = training_model.evaluate([questions, answers], Y, verbose=1)
-        print (res)
+        # training_model.load_weights('train_weights_epoch_1.h5')
+        # questions, answers, labels = eb.build_corpus('test.txt')
+        # # model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        # questions = eb.turn_to_vector(questions, vocab)
+        # answers = eb.turn_to_vector(answers, vocab)
+        # # print(questions[1])
+        # # print(answers[1])
+        # Y = np.array(labels)
+        # sims = training_model.predict([questions, answers])
+        # res = training_model.evaluate([questions, answers], Y, verbose=1)
+        # print (res)
         # # # c = 0
         # # for i in range(len(sims)):
         # #     if (sims[i] > 0):
@@ -154,13 +154,13 @@ class ModelTraining:
         # # print(c/len(sims))
         # # max_r = np.argmax(sims)
         # # print(max_r)
-        with open('sim2.txt', 'w') as f:
-            for i in range(len(sims)):
-                # max_r = np.argmax(sims[i])
-                f.write(str(sims[i]))
-                f.write('\n')
-            # print('\n')
-        f.close()
+        # with open('sim2.txt', 'w') as f:
+        #     for i in range(len(sims)):
+        #         # max_r = np.argmax(sims[i])
+        #         f.write(str(sims[i]))
+        #         f.write('\n')
+        #     # print('\n')
+        # f.close()
 
 
 if __name__ == "__main__":

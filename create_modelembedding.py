@@ -7,7 +7,6 @@ import random
 
 
 class EmbeddingMatrix:
-    global g
     def create_model(self, FILE_PATH):
         prep = preprocess.PreprocessData()
         data_processed = prep.get_modified_data(FILE_PATH)
@@ -19,8 +18,8 @@ class EmbeddingMatrix:
         logging.basicConfig(
             format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
         model = Word2Vec(train_data, size=100, window=10,
-                         min_count=1, workers=4, sg=1)
-        filename = 'skipgram_model.pkl'
+                         min_count=1, workers=4, sg=0)
+        filename = 'cbow_model.pkl'
         pickle.dump(model, open(filename, 'wb'))
 
     def create_vocab_with_index(self, model):
@@ -59,12 +58,14 @@ class EmbeddingMatrix:
             if word in g:
                 embedding_weights[int(vocab[word]), :] = np.array(g[word])
             else:
-                embedding_weights[int(vocab[word]), :] = np.random.uniform(-0.25, 0.25, 300)
+                embedding_weights[int(vocab[word]), :] = np.random.uniform(-0.5, 0.5, 300)
         return embedding_weights
 
     def main(self):
         g = self.get_glove_vectors()
-        model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        self.create_model('all_file.txt')
+        model = pickle.load(open('cbow_model.pkl', 'rb'))
+        self.create_vocab_with_index(model)
         vocab = self.create_vocab_dict()
         print (len(vocab))
         weights = self.embmatrix(g, vocab)
