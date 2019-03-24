@@ -11,26 +11,6 @@ from nltk.stem.porter import PorterStemmer
 FILE_PATH = '/home/vudat1710/Downloads/NLP/CQA/file.txt'
 
 class PreprocessData:
-	def clean_str(self, string):
-		"""
-		Tokenization/string cleaning for all datasets except for SST.
-		Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
-		"""
-		string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
-		string = re.sub(r"\'s", " \'s", string)
-		string = re.sub(r"\'ve", " \'ve", string)
-		string = re.sub(r"n\'t", " n\'t", string)
-		string = re.sub(r"\'re", " \'re", string)
-		string = re.sub(r"\'d", " \'d", string)
-		string = re.sub(r"\'ll", " \'ll", string)
-		string = re.sub(r",", " , ", string)
-		string = re.sub(r"!", " ! ", string)
-		string = re.sub(r"\(", " \( ", string)
-		string = re.sub(r"\)", " \) ", string)
-		string = re.sub(r"\?", " \? ", string)
-		string = re.sub(r"\s{2,}", " ", string)
-		return string.strip().lower()
-		
 	def url_elimination(self, text):
 		urls = re.findall('(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-?=%.]+', text)
 		output = ''
@@ -62,23 +42,18 @@ class PreprocessData:
 			if temp is not '':
 				new_words.append(temp)
 		return new_words
-	
-	def normalize_string(self, text):
-		return re.sub(r'([a-z])\1+', lambda m: m.group(1).lower(), text, flags=re.IGNORECASE)
 
 	def replace_numbers(self, words):
 		"""Replace all interger occurrences in list of tokenized words with textual representation"""
-		return [re.sub(r'\d+', '', word) for word in words]
+		return [re.sub(r'\d+', '<num>', word) for word in words]
 
 	def clean(self, text):
-		text = self.clean_str(text)
-		text = self.normalize_string(text)
 		words = self.tokenize(text)
 		words = self.remove_non_ascii(words)
 		words = self.remove_punctuation2(words)
 		words = self.replace_numbers(words)
-		# return ' '.join(words)
-		return words
+		return ' '.join(words)
+		# return words
 
 	def get_modified_data(self, FILE_PATH):
 		f = open(FILE_PATH, 'r')
@@ -91,6 +66,27 @@ class PreprocessData:
 			data_processed.append(temp)
 		f.close()
 		return data_processed
+
+	def clean_str(self, string):
+		"""
+		Tokenization/string cleaning for all datasets except for SST.
+		Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
+		"""
+		string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
+		string = re.sub(r"\'s", " \'s", string)
+		string = re.sub(r"\'ve", " \'ve", string)
+		string = re.sub(r"n\'t", " n\'t", string)
+		string = re.sub(r"\'re", " \'re", string)
+		string = re.sub(r"\'d", " \'d", string)
+		string = re.sub(r"\'ll", " \'ll", string)
+		string = re.sub(r",", " , ", string)
+		string = re.sub(r"!", " ! ", string)
+		string = re.sub(r"\(", " \( ", string)
+		string = re.sub(r"\)", " \) ", string)
+		string = re.sub(r"\?", " \? ", string)
+		string = re.sub(r"\s{2,}", " ", string)
+		return string.strip().lower()
+
 
 	def load_data_and_labels(self, train_file):
 		"""
@@ -105,7 +101,11 @@ class PreprocessData:
 		x_text = questions + answers
 		# print(x_text)
 		x_text = [self.clean_str(sent) for sent in x_text]
-
+		# Generate labels
+		# positive_labels = [[0, 1] for _ in positive_examples]
+		# negative_labels = [[1, 0] for _ in negative_examples]
+		# y = np.concatenate([positive_labels, negative_labels], 0)
+		# return [x_text, y]
 		return x_text
 
 	
