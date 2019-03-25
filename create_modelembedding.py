@@ -19,7 +19,7 @@ class EmbeddingMatrix:
         logging.basicConfig(
             format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
         model = Word2Vec(train_data, size=100, window=10,
-                         min_count=1, workers=4, sg=1)
+                         min_count=1, workers=4, sg=0)
         filename = 'skipgram_model.pkl'
         pickle.dump(model, open(filename, 'wb'))
 
@@ -64,7 +64,9 @@ class EmbeddingMatrix:
 
     def main(self):
         g = self.get_glove_vectors()
+        self.create_model('all_file.txt')
         model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        self.create_vocab_with_index(model)
         vocab = self.create_vocab_dict()
         print (len(vocab))
         weights = self.embmatrix(g, vocab)

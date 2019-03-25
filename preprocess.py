@@ -47,13 +47,18 @@ class PreprocessData:
 		"""Replace all interger occurrences in list of tokenized words with textual representation"""
 		return [re.sub(r'\d+', '<num>', word) for word in words]
 
+	def normalize_string(self, text):
+		return re.sub(r'([a-z])\1+', lambda m: m.group(1).lower(), text, flags=re.IGNORECASE)
+
 	def clean(self, text):
+		text = self.clean_str(text)
+		text = self.normalize_string(text)
 		words = self.tokenize(text)
 		words = self.remove_non_ascii(words)
 		words = self.remove_punctuation2(words)
 		words = self.replace_numbers(words)
-		return ' '.join(words)
-		# return words
+		# return ' '.join(words)
+		return words
 
 	def get_modified_data(self, FILE_PATH):
 		f = open(FILE_PATH, 'r')

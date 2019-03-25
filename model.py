@@ -1,6 +1,6 @@
 from keras import backend as K
 from keras.layers import Embedding
-from keras.layers import LSTM, Input, dot, Lambda, Dense, Dropout, concatenate
+from keras.layers import LSTM, Input, dot, Lambda, Dense, Dropout, concatenate, CuDNNLSTM, BatchNormalization
 from keras.layers.wrappers import Bidirectional
 from keras.models import Model
 import numpy as np
@@ -9,23 +9,25 @@ import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 from create_modelembedding import EmbeddingMatrix
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.optimizers import Adam
+from callback import AnSelCB
 
 
 class ModelTraining:
     def ranknet(self, y_true, y_pred):
         return K.mean(K.log(1. + K.exp(-(y_true * y_pred - (1 - y_true) * y_pred))), axis=-1)
 
-    def map_score(self, s1s_dev, s2s_dev, y_pred, labels_dev):
+    def map_score(self, s1s_dev, s2s_dev, y_pred, y_true):
         QA_pairs = {}
         for i in range(len(s1s_dev)):
             pred = y_pred[i]
 
-            s1 = " ".join(s1s_dev[i])
-            s2 = " ".join(s2s_dev[i])
+            s1 = " ".join(str(s1s_dev[i]))
+            s2 = " ".join(str(s2s_dev[i]))
             if s1 in QA_pairs:
-                QA_pairs[s1].append((s2, labels_dev[i], pred[1]))
+                QA_pairs[s1].append((s2, y_true[:i], pred))
             else:
-                QA_pairs[s1] = [(s2, labels_dev[i], pred[1])]
+                QA_pairs[s1] = [(s2, y_true[:i], pred)]
 
         MAP, MRR = 0, 0
         num_q = len(QA_pairs.keys())
@@ -69,15 +71,19 @@ class ModelTraining:
         qa_embedding = Embedding(
             input_dim=vocab_size + 1, input_length=150, output_dim=weights.shape[1], mask_zero=False, weights=[weights])
         bi_lstm = Bidirectional(
-            LSTM(activation='tanh', dropout=0.5, units=hidden_dim, return_sequences=False))
+            CuDNNLSTM(units=hidden_dim, return_sequences=False))
+        # bi_lstm = Bidirectional(
+        #     LSTM(activation="tanh", dropout=0.5, units=hidden_dim, return_sequences=False))
 
         question_embedding = qa_embedding(question)
         question_embedding = Dropout(0.5)(question_embedding)
         question_enc_1 = bi_lstm(question_embedding)
+        question_enc_1 = BatchNormalization()(question_enc_1)
 
         answer_embedding = qa_embedding(answer)
         answer_embedding = Dropout(0.5)(answer_embedding)
         answer_enc_1 = bi_lstm(answer_embedding)
+        answer_enc_1 = BatchNormalization()(answer_enc_1)
 
         # qa_merged = dot([question_enc_1, answer_enc_1], axes=1, normalize=True)
         qa_merged = concatenate([question_enc_1, answer_enc_1])
@@ -87,7 +93,8 @@ class ModelTraining:
         output = lstm_model([question, answer])
         training_model = Model(
             inputs=[question, answer], outputs=output, name='training_model')
-        training_model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        opt = Adam(lr=0.0001)
+        training_model.compile(loss='binary_crossentropy', optimizer=opt)
         # lstm_model.compile(loss='binary_crossentropy', optimizer='adam')
         return training_model
 
@@ -107,9 +114,14 @@ class ModelTraining:
 
         training_model = self.get_bilstm_model(vocab_len, vocab)
         epoch = 1
-        es = EarlyStopping(monitor='val_acc', verbose=1, patience=2)
-        checkpoint = ModelCheckpoint('model_improvement-{epoch:02d}-{val_acc:.2f}.h5', monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-        
+        # es = EarlyStopping(monitor=self.map(
+        #     q_dev, a_dev), verbose=1, patience=5)
+        # checkpoint = ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor=lambda y_pred: self.map(
+        #     q_dev, a_dev), verbose=1, save_best_only=True, mode='max')
+        callback_list = [AnSelCB(q_dev, a_dev, l_dev, [q_dev, a_dev]),
+                         ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor='map', verbose=1, save_best_only=True, mode='max'),
+                         EarlyStopping(monitor='map', mode='max', patience=5)]
+
         training_model.fit(
             [questions, answers],
             Y,
@@ -117,28 +129,31 @@ class ModelTraining:
             batch_size=64,
             validation_data=([q_dev, a_dev], l_dev),
             verbose=1,
-            callbacks=[es, checkpoint]
+            callbacks=callback_list
         )
         training_model.save_weights(
             'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
         training_model.summary()
 
-        training_model.load_weights('train_weights_epoch_1.h5')
-        questions, answers, labels = eb.build_corpus('test.txt')
-        questions = eb.turn_to_vector(questions, vocab)
-        answers = eb.turn_to_vector(answers, vocab)
-        Y = np.array(labels)
-        sims = training_model.predict([questions, answers])
-        res = training_model.evaluate([questions, answers], Y, verbose=1)
-        print (res)
+        # training_model.load_weights('model_improvement-03-0.73.h5')
+        # questions, answers, labels = eb.build_corpus('test.txt')
+        # questions_eb = eb.turn_to_vector(questions, vocab)
+        # answers_eb = eb.turn_to_vector(answers, vocab)
+        # Y = np.array(labels)
+        # sims = training_model.predict([questions_eb, answers_eb])
+        # MAP, MRR = self.map_score(questions, answers, sims, labels)
+        # print("MAP: ", MAP)
+        # print("MRR: ", MRR)
+        # res = training_model.evaluate([questions, answers], Y, verbose=1)
+        # print (res)
 
-        with open('sim2.txt', 'w') as f:
-            for i in range(len(sims)):
-                # max_r = np.argmax(sims[i])
-                f.write(str(sims[i]))
-                f.write('\n')
-            # print('\n')
-        f.close()
+        # with open('sim2.txt', 'w') as f:
+        #     for i in range(len(sims)):
+        #         # max_r = np.argmax(sims[i])
+        #         f.write(str(sims[i]))
+        #         f.write('\n')
+        #     # print('\n')
+        # f.close()
 
 
 if __name__ == "__main__":
