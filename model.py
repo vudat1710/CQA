@@ -109,8 +109,8 @@ class ModelTraining:
         answers = eb.turn_to_vector(answers, vocab)
         Y = np.array(labels)
         q_dev, a_dev, l_dev = eb.build_corpus('dev.txt')
-        q_dev = eb.turn_to_vector(q_dev, vocab)
-        a_dev = eb.turn_to_vector(a_dev, vocab)
+        q_dev_eb = eb.turn_to_vector(q_dev, vocab)
+        a_dev_eb = eb.turn_to_vector(a_dev, vocab)
 
         training_model = self.get_bilstm_model(vocab_len, vocab)
         epoch = 1
@@ -118,7 +118,7 @@ class ModelTraining:
         #     q_dev, a_dev), verbose=1, patience=5)
         # checkpoint = ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor=lambda y_pred: self.map(
         #     q_dev, a_dev), verbose=1, save_best_only=True, mode='max')
-        callback_list = [AnSelCB(q_dev, a_dev, l_dev, [q_dev, a_dev]),
+        callback_list = [AnSelCB(q_dev, a_dev, l_dev, [q_dev_eb, a_dev_eb]),
                          ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor='map', verbose=1, save_best_only=True, mode='max'),
                          EarlyStopping(monitor='map', mode='max', patience=5)]
 
