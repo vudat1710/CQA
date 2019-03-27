@@ -4,6 +4,8 @@ import pickle
 import preprocess
 import numpy as np
 import random
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 
 
 class EmbeddingMatrix:
@@ -55,30 +57,48 @@ class EmbeddingMatrix:
 
     def embmatrix(self, g, vocab):
         embedding_weights = np.zeros((len(vocab)+1, 300), dtype=float)
-        for word in vocab.keys():
+        for word in vocab:
             if word in g:
                 embedding_weights[int(vocab[word]), :] = np.array(g[word])
             else:
                 embedding_weights[int(vocab[word]), :] = np.random.uniform(-0.25, 0.25, 300)
         return embedding_weights
 
+    def turn_to_vector(self, questions, answers, tok):
+        max_len = 150
+        vocab_size = len(tok.word_index) + 1
+
+        q_vec = tok.texts_to_sequences(questions)
+        a_vec = tok.texts_to_sequences(answers)
+        q_vec_pad = pad_sequences(q_vec, maxlen=max_len, padding='post', truncating='post')
+        a_vec_pad = pad_sequences(a_vec, maxlen=max_len, padding='post', truncating='post')
+
+        return (q_vec_pad, a_vec_pad)
+
+
     def main(self):
         g = self.get_glove_vectors()
-        self.create_model('all_file.txt')
-        model = pickle.load(open('skipgram_model.pkl', 'rb'))
-        self.create_vocab_with_index(model)
-        vocab = self.create_vocab_dict()
-        print (len(vocab))
-        weights = self.embmatrix(g, vocab)
-        # print (weights)
-        # print (vocab['i'])
+        # self.create_model('all_file.txt')
+        # model = pickle.load(open('skipgram_model.pkl', 'rb'))
+        # self.create_vocab_with_index(model)
+        # vocab1 = self.create_vocab_dict()
+        # weights1 = self.embmatrix(g, vocab1)
+        # print (np.shape(weights1))
         
-
-        # print (loaded_model["work"])
-        # print(type(vocab))
-        # print (type(loaded_model.wv.vocab["work"].index))
-        # self.create_vocab_with_index(loaded_model)
-
+        tok = Tokenizer()
+        data = []
+        with open('all_file.txt', 'r') as f:
+            for line in f.readlines():
+                temp = line.split('\t')
+                if temp[0] not in data:
+                    data.append(temp[0])
+                data.append(temp[1])
+        f.close()
+        print (tok.word_docs)
+        
+        # weights = self.embmatrix(g, vocab)
+        # print (np.shape(weights))
+        # tok.word_docs
 
 if __name__ == "__main__":
     a = EmbeddingMatrix()

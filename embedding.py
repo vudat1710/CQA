@@ -43,7 +43,7 @@ class Embedding_Data:
         
     def get_index(self, word, vocab):
         return vocab[word]
-
+        
     def main(self):
         FILE_PATH = '/home/vudat1710/Downloads/NLP/CQA/dev.txt'
         questions, answers = self.build_corpus(FILE_PATH)

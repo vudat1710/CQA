@@ -24,7 +24,7 @@ class PreprocessData:
 		return output
 
 	def tokenize(self, text):
-		text = self.url_elimination(text)
+		# text = self.url_elimination(text)
 		return [w.lower() for w in nltk.word_tokenize(text)]
 		
 	def remove_non_ascii(self, words):
@@ -52,11 +52,11 @@ class PreprocessData:
 
 	def clean(self, text):
 		text = self.clean_str(text)
-		text = self.normalize_string(text)
+		# text = self.normalize_string(text)
 		words = self.tokenize(text)
-		words = self.remove_non_ascii(words)
-		words = self.remove_punctuation2(words)
-		words = self.replace_numbers(words)
+		# words = self.remove_non_ascii(words)
+		# words = self.remove_punctuation2(words)
+		# words = self.replace_numbers(words)
 		# return ' '.join(words)
 		return words
 

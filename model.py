@@ -11,23 +11,24 @@ from create_modelembedding import EmbeddingMatrix
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.optimizers import Adam
 from callback import AnSelCB
+from keras import regularizers
 
 
 class ModelTraining:
     def ranknet(self, y_true, y_pred):
         return K.mean(K.log(1. + K.exp(-(y_true * y_pred - (1 - y_true) * y_pred))), axis=-1)
 
-    def map_score(self, s1s_dev, s2s_dev, y_pred, y_true):
+    def map_score(self, s1s_dev, s2s_dev, y_pred, labels_dev):
         QA_pairs = {}
         for i in range(len(s1s_dev)):
             pred = y_pred[i]
 
-            s1 = " ".join(str(s1s_dev[i]))
-            s2 = " ".join(str(s2s_dev[i]))
+            s1 = str(s1s_dev[i])
+            s2 = str(s2s_dev[i])
             if s1 in QA_pairs:
-                QA_pairs[s1].append((s2, y_true[:i], pred))
+                QA_pairs[s1].append((s2, labels_dev[i], pred))
             else:
-                QA_pairs[s1] = [(s2, y_true[:i], pred)]
+                QA_pairs[s1] = [(s2, labels_dev[i], pred)]
 
         MAP, MRR = 0, 0
         num_q = len(QA_pairs.keys())
@@ -38,7 +39,7 @@ class ModelTraining:
             QA_pairs[s1] = sorted(
                 QA_pairs[s1], key=lambda x: x[-1], reverse=True)
 
-            for idx, (s2, label, prob) in enumerate(QA_pairs[s1]):
+            for idx, (s2, label, _) in enumerate(QA_pairs[s1]):
                 if int(label) == 1:
                     if not MRR_check:
                         MRR += 1 / (idx + 1)
@@ -78,16 +79,21 @@ class ModelTraining:
         question_embedding = qa_embedding(question)
         question_embedding = Dropout(0.5)(question_embedding)
         question_enc_1 = bi_lstm(question_embedding)
+        question_enc_1 = Dropout(0.5)(question_enc_1)
         question_enc_1 = BatchNormalization()(question_enc_1)
 
         answer_embedding = qa_embedding(answer)
         answer_embedding = Dropout(0.5)(answer_embedding)
         answer_enc_1 = bi_lstm(answer_embedding)
+        answer_enc_1 = Dropout(0.5)(answer_enc_1)
         answer_enc_1 = BatchNormalization()(answer_enc_1)
 
         # qa_merged = dot([question_enc_1, answer_enc_1], axes=1, normalize=True)
         qa_merged = concatenate([question_enc_1, answer_enc_1])
-        qa_merged = Dense(1, activation='sigmoid')(qa_merged)
+        qa_merged = Dense(64, activation='relu')(qa_merged)
+        qa_merged = Dropout(0.5)(qa_merged)
+        qa_merged = Dense(1, activation='sigmoid', kernel_regularizer=regularizers.l2(0.0001),
+                activity_regularizer=regularizers.l1(0.001))(qa_merged)
         lstm_model = Model(name="bi_lstm", inputs=[
                            question, answer], outputs=qa_merged)
         output = lstm_model([question, answer])
@@ -114,10 +120,6 @@ class ModelTraining:
 
         training_model = self.get_bilstm_model(vocab_len, vocab)
         epoch = 1
-        # es = EarlyStopping(monitor=self.map(
-        #     q_dev, a_dev), verbose=1, patience=5)
-        # checkpoint = ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor=lambda y_pred: self.map(
-        #     q_dev, a_dev), verbose=1, save_best_only=True, mode='max')
         callback_list = [AnSelCB(q_dev, a_dev, l_dev, [q_dev_eb, a_dev_eb]),
                          ModelCheckpoint('model_improvement-{epoch:02d}-{map:.2f}.h5', monitor='map', verbose=1, save_best_only=True, mode='max'),
                          EarlyStopping(monitor='map', mode='max', patience=5)]
@@ -135,13 +137,14 @@ class ModelTraining:
             'train_weights_epoch_' + str(epoch) + '.h5', overwrite=True)
         training_model.summary()
 
-        # training_model.load_weights('model_improvement-03-0.73.h5')
+        # training_model.load_weights('model_CuDNNimprovement-07-0.73.h5')
         # questions, answers, labels = eb.build_corpus('test.txt')
         # questions_eb = eb.turn_to_vector(questions, vocab)
         # answers_eb = eb.turn_to_vector(answers, vocab)
+        # print(questions_eb[0])
         # Y = np.array(labels)
         # sims = training_model.predict([questions_eb, answers_eb])
-        # MAP, MRR = self.map_score(questions, answers, sims, labels)
+        # MAP, MRR = self.map_score(questions, answers, sims, Y)
         # print("MAP: ", MAP)
         # print("MRR: ", MRR)
         # res = training_model.evaluate([questions, answers], Y, verbose=1)
